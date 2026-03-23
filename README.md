@@ -1,69 +1,52 @@
-| Supported Targets | ESP32 | ESP32-C2 | ESP32-C3 | ESP32-C5 | ESP32-C6 | ESP32-C61 | ESP32-H2 | ESP32-H21 | ESP32-P4 | ESP32-S2 | ESP32-S3 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- | -------- | --------- | -------- | -------- | -------- |
+# 🧭 3S_Compass (星环智能导航仪)
 
-# Blink Example
+**基于 ESP32-S3 与边缘 AI 的多模态交互式指南针 & 智能随身向导**
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+## 📖 项目简介
+3S_Compass 是一款融合了复古指南针形态与现代边缘智能体验的随身导航设备。它摆脱了传统手机导航对屏幕的重度依赖，通过**“圆形触屏 + 本地语音 AI + 阵列呼吸灯”**构建了全新的多模态交互逻辑。无论是户外探险、城市漫游还是极客日常，它都能以最自然、直观的方式为你指引方向，并提供沉浸式的多媒体陪伴。
 
-This example demonstrates how to blink a LED by using the GPIO driver or using the [led_strip](https://components.espressif.com/component/espressif/led_strip) library if the LED is addressable e.g. [WS2812](https://cdn-shop.adafruit.com/datasheets/WS2812B.pdf). The `led_strip` library is installed via [component manager](main/idf_component.yml).
+本项目在系统底层深度集成了开源项目 `miniclaw`，结合强大的 ESP-IDF 框架，打造了一个丝滑、轻量且高度可扩展的极客硬件生态。
 
-## How to Use Example
+---
 
-Before project configuration and build, be sure to set the correct chip target using `idf.py set-target <chip_name>`.
+## ✨ 核心特性 (Features)
 
-### Hardware Required
+### 🗣️ 1. 拟真多模态交互 (Touch & Voice)
+*   **圆形触控视界**：搭载视网膜级圆形 LCD 触摸屏，深度适配表盘式 UI 交互，提供丝滑的滑动与点按体验。
+*   **离线语音 AI 对话**：内置 INMP441 高保真全向麦克风。得益于 ESP32-S3 的 AI 矢量加速指令集，设备支持**本地离线语音唤醒与基础语义交流**。无需掏出手机，只需对它说出指令即可完成导航设置或状态查询。
 
-* A development board with normal LED or addressable LED on-board (e.g., ESP32-S3-DevKitC, ESP32-C6-DevKitC etc.)
-* A USB cable for Power supply and programming
+### 🚨 2. “星环”距离感知导航 (Halo LED Matrix)
+*   **方向指引**：表盘外围环绕 8 颗高亮 LED 阵列。在导航模式下，光芒将始终指向目标地标。
+*   **距离与精度感知**：摒弃冰冷的数字距离，采用 **PWM 动态亮度算法**。当你的朝向越接近正确方位，指示灯越明亮；随着你不断靠近目的地，星环的呼吸频率和整体亮度也会发生仿生学变化，让“靠近”这一动作充满仪式感。
 
-See [Development Boards](https://www.espressif.com/en/products/devkits) for more information about it.
+### 📍 3. 全球双星高精度定位 (GPS & BDS)
+*   板载中科微 ATGM336H 导航模组，支持 GPS 与北斗双模联合定位，配合秒脉冲 (PPS) 硬件授时，即使在复杂户外环境下也能快速获取高精度经纬度坐标。
+*   搭配 MMC5603NJ 工业级地磁传感器，实现静止状态下的精准罗盘指向。
 
-### Configure the Project
+### 🎵 4. 腕上多媒体中心 (Media & Storage)
+*   **TF / SD 卡海量存储**：支持大容量 TF 卡拓展，可用于存放离线地图数据、导航语音包及海量无损音乐。
+*   **I2S 独立音频解码**：搭载 MAX98357 D类音频功放，随时随地化身迷你随身听，在徒步时提供响亮的语音播报和音乐播放。
 
-Open the project configuration menu (`idf.py menuconfig`).
+### 🔋 5. 无忧续航与极客维护 (Power & OTA)
+*   **纯粹的移动基因**：采用锂电池供电方案，屏幕支持实时电量监测与低电量动态 UI 预警。
+*   **无感 OTA 升级**：支持通过 Wi-Fi 进行全量/差分固件 OTA 升级，设备功能持续进化，永远保持最新鲜的交互体验。
 
-In the `Example Configuration` menu:
+---
 
-* Select the LED type in the `Blink LED type` option.
-  * Use `GPIO` for regular LED
-  * Use `LED strip` for addressable LED
-* If the LED type is `LED strip`, select the backend peripheral
-  * `RMT` is only available for ESP targets with RMT peripheral supported
-  * `SPI` is available for all ESP targets
-* Set the GPIO number used for the signal in the `Blink GPIO number` option.
-* Set the blinking period in the `Blink period in ms` option.
+## 🧰 硬件架构概览
 
-### Build and Flash
+*   **核心主控**: Espressif ESP32-S3 (支持 Wi-Fi 4 & Bluetooth 5.0, 强大 AI 算力)
+*   **显示与交互**: 圆形 TFT 触摸屏 (SPI+I2C)
+*   **定位与姿态**: ATGM336H (GPS/北斗) + MMC5603NJ (高精度地磁)
+*   **音频系统**: MAX98357A (I2S DAC 功放) + INMP441 (I2S MEMS 麦克风)
+*   **存储与指示**: MicroSD (TF) 卡槽 + 8路独立 PWM 控制 LED 阵列
 
-Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
+## 🧩 软件生态
+*   **底层框架**: ESP-IDF (C 语言)
+*   **UI 与业务引擎**: 深度集成 **`miniclaw`** 开源项目，构建了流畅的图形渲染管线与高内聚的应用层架构。
+*   **AI 能力**: 集成 ESP-SR (语音识别框架) 用于本地关键词唤醒与指令识别。
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+---
 
-See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
-
-## Example Output
-
-As you run the example, you will see the LED blinking, according to the previously defined period. For the addressable LED, you can also change the LED color by setting the `led_strip_set_pixel(led_strip, 0, 16, 16, 16);` (LED Strip, Pixel Number, Red, Green, Blue) with values from 0 to 255 in the [source file](main/blink_example_main.c).
-
-```text
-I (315) example: Example configured to blink addressable LED!
-I (325) example: Turning the LED OFF!
-I (1325) example: Turning the LED ON!
-I (2325) example: Turning the LED OFF!
-I (3325) example: Turning the LED ON!
-I (4325) example: Turning the LED OFF!
-I (5325) example: Turning the LED ON!
-I (6325) example: Turning the LED OFF!
-I (7325) example: Turning the LED ON!
-I (8325) example: Turning the LED OFF!
-```
-
-Note: The color order could be different according to the LED model.
-
-The pixel number indicates the pixel position in the LED strip. For a single LED, use 0.
-
-## Troubleshooting
-
-* If the LED isn't blinking, check the GPIO or the LED type selection in the `Example Configuration` menu.
-
-For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+> *"The compass just points North. We point you to the destination."* 
+> （指南针只指向北方，而我们指向目的地。）
