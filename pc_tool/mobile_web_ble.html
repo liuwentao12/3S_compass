@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3S_Compass 手机控制端</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h2 { margin-top: 0; font-size: 1.2rem; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
+        button:active { background: #005bb5; }
+        .btn-secondary { background: #34c759; }
+        .btn-secondary:active { background: #28a745; }
+        .btn-warning { background: #ff9500; }
+        .btn-warning:active { background: #e08300; }
+        #status { font-weight: bold; color: #ff3b30; text-align: center; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align: center;">🧭 星环智能向导</h1>
+    <div id="status">当前状态：未连接蓝牙设备</div>
+
+    <div class="card">
+        <h2>🔗 设备连接</h2>
+        <button id="btnConnect">搜索并连接蓝牙</button>
+    </div>
+
+    <div class="card">
+        <h2>📍 设定目的地坐标</h2>
+        <label>纬度 (Latitude):</label>
+        <input type="number" id="latInput" value="39.916345" step="0.000001">
+        <label>经度 (Longitude):</label>
+        <input type="number" id="lonInput" value="116.397155" step="0.000001">
+        <button class="btn-secondary" id="btnSendTarget">发送坐标并导航</button>
+    </div>
+
+    <div class="card">
+        <h2>🛠️ 模式与校准</h2>
+        <button class="btn-secondary" id="btnCompassMode">退回普通指南针模式</button>
+        <button class="btn-warning" id="btnCalibrate">开启罗盘画 "8" 字校准</button>
+    </div>
+
+    <script>
+        let bleDevice = null;
+        let bleCharacteristic = null;
+        const SERVICE_UUID = 0x00FF; // 与 ESP32-S3 代码中的配置对应
+        const CHAR_UUID = 0xFF01;
+
+        async function connectBLE() {
+            try {
+                document.getElementById('status').innerText = '正在搜索设备...';
+                document.getElementById('status').style.color = '#ff9500';
+
+                // 请求连接名为 3S_Compass 的蓝牙设备
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: '3S_Compass' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                document.getElementById('status').innerText = '正在连接...';
+                
+                const server = await bleDevice.gatt.connect();
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                bleCharacteristic = await service.getCharacteristic(CHAR_UUID);
+
+                document.getElementById('status').innerText = '✅ 已成功连接到 3S_Compass';
+                document.getElementById('status').style.color = '#34c759';
+
+                bleDevice.addEventListener('gattserverdisconnected', () => {
+                    document.getElementById('status').innerText = '❌ 蓝牙已断开连接';
+                    document.getElementById('status').style.color = '#ff3b30';
+                    bleCharacteristic = null;
+                });
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = '❌ 连接失败: ' + error.message;
+                document.getElementById('status').style.color = '#ff3b30';
+            }
+        }
+
+        async function sendCommand(cmdStr) {
+            if (!bleCharacteristic) {
+                alert('请先连接蓝牙！');
+                return;
+            }
+            try {
+                // 将字符串转为字节数组并发送
+                const encoder = new TextEncoder();
+                await bleCharacteristic.writeValue(encoder.encode(cmdStr));
+                console.log("发送成功: " + cmdStr);
+            } catch (error) {
+                alert('发送失败: ' + error.message);
+            }
+        }
+
+        document.getElementById('btnConnect').addEventListener('click', connectBLE);
+
+        document.getElementById('btnSendTarget').addEventListener('click', () => {
+            const lat = document.getElementById('latInput').value;
+            const lon = document.getElementById('lonInput').value;
+            sendCommand(`DEST:${lat},${lon}`);
+        });
+
+        document.getElementById('btnCompassMode').addEventListener('click', () => {
+            sendCommand('MODE:COMPASS');
+        });
+
+        document.getElementById('btnCalibrate').addEventListener('click', () => {
+            sendCommand('CALI:START');
+            alert('请拿起设备在空中画“8”字进行校准。');
+        });
+    </script>
+</body>
+</html>

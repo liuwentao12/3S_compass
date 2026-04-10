@@ -5,3 +5,4 @@ dependencies:
     version: '>=5.5.0,<5.6.0'
 
   espressif/esp_websocket_client: ^1.4.0
+  espressif/esp-sr: "^2.0.0"

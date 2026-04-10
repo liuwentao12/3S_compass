@@ -1,5 +1,6 @@
 #include "navigator_logic.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 #include "esp_log.h"
 #include <math.h>
 
@@ -23,14 +24,35 @@ static const int led_pins[8] = {
 
 static nav_mode_t current_mode = MODE_COMPASS;
 
-// 初始化 GPIO
+// 初始化 LED PWM (LEDC)
 void indicator_leds_init(void) {
+    // 配置 LEDC 定时器
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .timer_num        = LEDC_TIMER_0,
+        .duty_resolution  = LEDC_TIMER_13_BIT, // 0-8191
+        .freq_hz          = 5000,              // 5 kHz
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    // 配置 8 个通道
     for (int i = 0; i < 8; i++) {
-        gpio_reset_pin(led_pins[i]);
-        gpio_set_direction(led_pins[i], GPIO_MODE_OUTPUT);
-        gpio_set_level(led_pins[i], 0); // 默认全灭
+        ledc_channel_config_t ledc_channel = {
+            .speed_mode     = LEDC_LOW_SPEED_MODE,
+            .channel        = (ledc_channel_t)i,
+            .timer_sel      = LEDC_TIMER_0,
+            .intr_type      = LEDC_INTR_DISABLE,
+            .gpio_num       = led_pins[i],
+            .duty           = 0, // 初始亮度 0
+            .hpoint         = 0
+        };
+        ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
     }
-    ESP_LOGI(TAG, "8个指示灯初始化完成");
+    
+    // 初始化渐变功能（后续如果需要硬件级别的呼吸灯可以开启）
+    ledc_fade_func_install(0);
+    ESP_LOGI(TAG, "8个PWM指示灯初始化完成");
 }
 
 void set_navigation_mode(nav_mode_t mode) {
@@ -63,18 +85,28 @@ static double calculate_bearing(double lat1, double lon1, double lat2, double lo
     return bearing;
 }
 
-// 点亮对应角度的LED
+// 根据高斯分布(或其他缓和算法)点亮对应角度的LED
 static void point_led_to_angle(float relative_angle) {
     // 将角度标准化到 0-359.99 之间
     while (relative_angle < 0) relative_angle += 360.0;
     while (relative_angle >= 360.0) relative_angle -= 360.0;
 
-    // 将 360 度分为 8 个区间，每个区间 45 度 (偏移 22.5 度以保证四舍五入到最近的灯)
-    int led_index = (int)((relative_angle + 22.5) / 45.0) % 8;
-
-    // 刷新 LED 状态：只点亮目标灯，熄灭其他灯
+    // 动态亮度算法：根据每个灯与目标角度的夹角差，计算 PWM 亮度
+    // 假设 LED1 在 0 度，LED2 在 45 度 ...
     for (int i = 0; i < 8; i++) {
-        gpio_set_level(led_pins[i], (i == led_index) ? 1 : 0);
+        float led_angle = i * 45.0;
+        float diff = fabs(relative_angle - led_angle);
+        if (diff > 180.0) diff = 360.0 - diff; // 寻找最短角度差
+
+        // 亮度随角度差衰减：在正对时最亮(8191)，超过 90 度就熄灭
+        uint32_t duty = 0;
+        if (diff < 90.0) {
+            // 使用 cos 曲线让过渡更自然：cos(diff) 当 diff=0 时最大，diff=90 时为 0
+            duty = (uint32_t)(8191 * cos(diff * PI / 180.0));
+        }
+
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i, duty);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, (ledc_channel_t)i);
     }
 }
 
