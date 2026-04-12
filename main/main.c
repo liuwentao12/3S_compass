@@ -5,6 +5,7 @@
 #include "Navigation/sensor_modules.h"
 #include "Navigation/navigator_logic.h"
 #include "storage/sd_card.h"
+#include "storage/track_logger.h"
 #include "interaction/ble_server.h"
 #include "nvs_flash.h"
 #include "esp_log.h"
@@ -80,6 +81,8 @@ void app_main(void)
     // 初始化 SD 卡并挂载文件系统
     if (sd_card_init() == ESP_OK) {
         ESP_LOGI(TAG, "SD 卡挂载成功！可以读取离线资源。");
+        // 初始化轨迹记录器
+        track_logger_init();
     } else {
         ESP_LOGW(TAG, "SD 卡未检测到或挂载失败，将跳过部分依赖功能。");
     }
@@ -100,6 +103,12 @@ void app_main(void)
         double cur_lat = 0, cur_lon = 0;
         bool has_gps = gps_get_current_location(&cur_lat, &cur_lon);
 
+            
+            // 每 5 秒钟写入一次轨迹，以防 SD 卡写入过于频繁
+            static int record_tick = 0;
+            if (record_tick++ % 5 == 0) {
+                track_logger_record(cur_lat, cur_lon, heading);
+            }
         if (has_gps) {
             ESP_LOGI(TAG, "[已定位] 经度:%.5f 纬度:%.5f | 罗盘朝向:%.1f°", cur_lon, cur_lat, heading);
         } else {
